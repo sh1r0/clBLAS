@@ -1,12 +1,12 @@
 # ########################################################################
 # Copyright 2013 Advanced Micro Devices, Inc.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 # http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -39,7 +39,7 @@ if( CMAKE_GENERATOR MATCHES "NMake" )
 endif( )
 
 # If we are on linux, and we wish to link with the netlib BLAS implementation, we need to have a valid fortran compiler
-if( NOT CORR_TEST_WITH_ACML AND NOT WIN32 AND NOT APPLE )
+if( NOT CORR_TEST_WITH_ACML AND NOT WIN32 AND NOT APPLE AND NOT ANDROID )
   project(clBLAS Fortran C CXX )
 else( )
   project(clBLAS C CXX)
@@ -78,8 +78,8 @@ if(NOT CMAKE_BUILD_TYPE)
       FORCE)
 endif()
 
-# These variables are meant to contain string which should be appended to the installation paths 
-# of library and executable binaries, respectively.  They are meant to be user configurable/overridable.  
+# These variables are meant to contain string which should be appended to the installation paths
+# of library and executable binaries, respectively.  They are meant to be user configurable/overridable.
 set( SUFFIX_LIB_DEFAULT "" )
 set( SUFFIX_BIN_DEFAULT "" )
 
@@ -113,7 +113,7 @@ if( MSVC_IDE )
 endif( )
 
 # add the math library for Linux
-if( UNIX ) 
+if( UNIX )
     set(MATH_LIBRARY "m")
 endif()
 
@@ -149,7 +149,7 @@ if( BUILD_TEST )
 		else()
 			message(WARNING "Cannot find acml.h")
 		endif()
-		
+
 		if( UNIX )
 			find_library(ACML_LIBRARIES acml_mp
 				HINTS
@@ -167,7 +167,7 @@ if( BUILD_TEST )
 			)
 			mark_as_advanced(_acml_mv_library)
 		endif( )
-		
+
 		if(WIN32)
 			find_library(ACML_LIBRARIES libacml_mp_dll
 				HINTS
@@ -177,7 +177,7 @@ if( BUILD_TEST )
                                         $ENV{ACML_ROOT}/${ACML_SUBDIR}/lib
 			)
 		endif( )
-		
+
 		if( NOT ACML_LIBRARIES )
 			message(WARNING "Cannot find libacml")
 		endif( )
@@ -197,15 +197,17 @@ endif( )
 # This will define OPENCL_FOUND
 find_package( OpenCL )
 
-# Find Boost on the system, and configure the type of boost build we want
-set( Boost_USE_MULTITHREADED ON )
-set( Boost_USE_STATIC_LIBS   ON )
-set( Boost_DETAILED_FAILURE_MSG   ON )
-set( Boost_DEBUG ON )
-set( Boost_ADDITIONAL_VERSIONS "1.44.0" "1.44" "1.47.0" "1.47" )
+if ( NOT ANDROID )
+    # Find Boost on the system, and configure the type of boost build we want
+    set( Boost_USE_MULTITHREADED ON )
+    set( Boost_USE_STATIC_LIBS   ON )
+    set( Boost_DETAILED_FAILURE_MSG   ON )
+    set( Boost_DEBUG ON )
+    set( Boost_ADDITIONAL_VERSIONS "1.44.0" "1.44" "1.47.0" "1.47" )
 
-find_package( Boost 1.33.0 COMPONENTS program_options )
-message(STATUS "Boost_PROGRAM_OPTIONS_LIBRARY: ${Boost_PROGRAM_OPTIONS_LIBRARY}")
+    find_package( Boost 1.33.0 COMPONENTS program_options )
+    message(STATUS "Boost_PROGRAM_OPTIONS_LIBRARY: ${Boost_PROGRAM_OPTIONS_LIBRARY}")
+endif()
 
 
 if( NOT Boost_FOUND )
@@ -225,9 +227,11 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     # Don't use -rpath.
     set(CMAKE_SKIP_RPATH ON CACHE BOOL "Skip RPATH" FORCE)
 
-    set(CMAKE_C_FLAGS "-m${TARGET_PLATFORM} ${CMAKE_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "-m${TARGET_PLATFORM} ${CMAKE_CXX_FLAGS}")
-    set(CMAKE_Fortran_FLAGS "-m${TARGET_PLATFORM} ${CMAKE_Fortran_FLAGS}")
+    if (NOT ANDROID)
+        set(CMAKE_C_FLAGS "-m${TARGET_PLATFORM} ${CMAKE_C_FLAGS}")
+        set(CMAKE_CXX_FLAGS "-m${TARGET_PLATFORM} ${CMAKE_CXX_FLAGS}")
+        set(CMAKE_Fortran_FLAGS "-m${TARGET_PLATFORM} ${CMAKE_Fortran_FLAGS}")
+    endif()
 
     if(TARGET_PLATFORM EQUAL 32)
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-builtin")
@@ -236,7 +240,7 @@ elseif( MSVC )
 	# CMake sets huge stack frames for windows, for whatever reason.  We go with compiler default.
 	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
 	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
-	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}" ) 
+	string( REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}" )
 endif( )
 
 if (WIN32)
@@ -249,13 +253,13 @@ add_definitions( -DCL_USE_DEPRECATED_OPENCL_1_1_APIS )
 configure_file( "${PROJECT_SOURCE_DIR}/clBLAS.version.h.in" "${PROJECT_BINARY_DIR}/include/clBLAS.version.h" )
 
 # configure a header file to pass the CMake version settings to the source, and package the header files in the output archive
-install( FILES 
-			"clBLAS.h" 
+install( FILES
+			"clBLAS.h"
 			"clAmdBlas.h"
 			"clAmdBlas.version.h"
 			"clBLAS-complex.h"
 			"${PROJECT_BINARY_DIR}/include/clBLAS.version.h"
-		DESTINATION 
+		DESTINATION
 			"./include" )
 
 
@@ -279,7 +283,7 @@ if( BUILD_SAMPLE AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/samples" )
 	add_subdirectory( samples )
 endif( )
 
-# The build server is not supposed to build or package any of the tests; build server script will define this on the command line with 
+# The build server is not supposed to build or package any of the tests; build server script will define this on the command line with
 # cmake -G "Visual Studio 10 Win64" -D BUILDSERVER:BOOL=ON ../..
 if( BUILD_TEST )
 	if( IS_DIRECTORY "${PROJECT_SOURCE_DIR}/tests" )
@@ -314,7 +318,7 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/clBLASConfigVersion.cmake
   DESTINATION ${destdir})
 
 
-# The following code is setting variables to control the behavior of CPack to generate our 
+# The following code is setting variables to control the behavior of CPack to generate our
 if( WIN32 )
 	set( CPACK_SOURCE_GENERATOR "ZIP" )
 	set( CPACK_GENERATOR "ZIP" )
